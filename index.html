@@ -1,0 +1,403 @@
+<html>
+    <head>
+        <title>Top-k Card Game, Kookmin Univ.</title>
+        <script>
+            function randInt(max) {
+                return Math.floor(Math.random() * max);
+            }
+            function shuffle(array) {
+                let currentIndex = array.length, randomIndex;
+
+                while (currentIndex !== 0) {
+
+                    randomIndex = Math.floor(Math.random() * currentIndex);
+                    currentIndex--;
+
+                    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+                }
+
+                return array;
+            }
+        </script>
+        <style>
+            #board{
+                margin-top:10px;
+                width:1000px;
+                height:800px;
+                background-color:honeydew;
+                position: relative;
+            }
+            .text_input{
+                width:40px;
+                text-align:center;
+            }
+
+            .card{
+                width:80px;
+                height:120px;
+                background:linear-gradient(120deg, rgba(177,174,219,1) 0%, rgba(14,101,119,1) 100%);
+                border-radius:5px;
+                position:absolute;
+                left:10px;
+                top:10px;
+                box-shadow: 0px 0px 3px 0px rgba(0,0,0,0.3);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 37px;
+                z-index:1;
+            }
+
+            .card:hover{
+                z-index:2;
+                cursor: pointer;
+                box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.5);
+            }
+
+            .info{
+                background-color:tomato;
+                width:1000px;
+                height: 50px;
+                margin-bottom:10px;
+                color:white;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                font-weight: bold;
+            }
+
+            .info.info2{
+                background-color: goldenrod;
+            }
+
+            #game_start{
+                background-color: black;
+                border: 2px solid black;
+                color:white;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            #game_start:hover{
+                background-color:white;
+                color:black;
+            }
+
+            .card.selected {
+                background: linear-gradient(120deg, rgba(255,254,0,1) 0%, rgba(255,220,71,1) 100%);
+            }
+            .card.flipped {
+                background: linear-gradient(120deg, rgba(255,255,255,1) 0%, rgba(238,238,238,1) 100%);
+            }
+            .card.larger{
+                background: linear-gradient(120deg, rgba(255,113,0,1) 0%, rgba(255,199,0,1) 100%);
+            }
+            .card.smaller{
+                background: linear-gradient(120deg, rgba(161,161,161,1) 0%, rgba(89,91,98,1) 100%);
+            }
+            .card.larger::before{
+                content: "↑";
+                color: white;
+            }
+            .card.smaller::before{
+                content: "↓";
+                color: white;
+            }
+            #gameover{
+                background-color:rgba(0,0,0,0.4);
+                position:absolute;
+                display:none;
+                left:0px;
+                top:0px;
+                width:100%;
+                height:100%;
+                color:white;
+                z-index:100;
+                justify-content:center;
+                align-items:center;
+            }
+            #missionclear{
+                background-color:rgba(255,255,255,0.4);
+                position:absolute;
+                display:none;
+                left:0px;
+                top:0px;
+                width:100%;
+                height:100%;
+                font-size:100px;
+                color:black;
+                z-index:100;
+                justify-content:center;
+                align-items:center;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id="state0">
+
+            <div class="info">
+                카드 수와 찾을 카드 수를 정하고, 카드를 적절히 배치한 후 "게임시작" 버튼을 누르세요!
+            </div>
+
+            카드 수 <input id="n_cards_input" class="text_input" type="text" value=10 disabled/>
+            <button id="n_card_down">▼</button>
+            <button id="n_card_up">▲</button>
+
+            찾을 카드 수 <input id="topk_input" class="text_input" type="text" value=3 disabled/>
+            <button id="topk_down">▼</button>
+            <button id="topk_up">▲</button>
+            ------
+            <button id="game_start">게임시작</button>
+        </div>
+
+        <div id="state1" style="display:none">
+
+            <div class="info info2">
+                비교할 두 카드를 차례로 선택하세요, 뒤집으려면 같은 카드를 두 번 선택하세요.
+            </div>
+            비교 횟수 <input id="n_comp_input" class="text_input" type="text" value=0 disabled/>
+            남은 카드 수 <input id="n_remain_input" class="text_input" type="text" value=0 disabled/>
+        </div>
+        
+        <div id="board">
+
+        
+        </div>
+        <div id="gameover">
+            <div style="font-size:40px;text-align:center;">
+                찾은 카드가 최소값을 갖지 않습니다...<br>
+                <div style="font-size:100px">Game Over!</div>
+            </div>
+        </div>
+        <div id="missionclear">
+            <div style="font-size:40px;text-align:center;">
+                축하합니다!<br>
+                <div style="font-size:100px">Mission Clear!</div>
+                최종 비교 횟수: <span id="final_score"></span>
+            </div>
+        </div>
+    </body>
+    <script>
+        var state = 0; // 0: beginning
+
+        n_card_up.addEventListener("click", (e) => {
+            n_cards_input.value = Math.min(30, parseInt(n_cards_input.value) + 1);
+            reset_board();
+        });
+
+        n_card_down.addEventListener("click", (e) => {
+            n_cards_input.value = Math.max(1, parseInt(n_cards_input.value) - 1);
+            topk_input.value = Math.min(parseInt(n_cards_input.value), parseInt(topk_input.value));
+            reset_board();
+        });
+
+        topk_up.addEventListener("click", (e) => {
+            topk_input.value = Math.min(parseInt(n_cards_input.value), parseInt(topk_input.value) + 1);
+        });
+
+        topk_down.addEventListener("click", (e) => {
+            topk_input.value = Math.max(1, parseInt(topk_input.value) - 1);
+        });
+
+
+        function reset_board(){
+
+            while(board.firstChild) board.removeChild(board.lastChild);
+
+            var n_cards = parseInt(n_cards_input.value);
+
+            for(var i=0; i<n_cards; i++){
+                card = document.createElement("div");
+                // card.setAttribute("draggable", "true");
+                card.classList.add('card');
+                card.style.left = (40 + i * 20) + "px";
+                card.style.top = "40px";
+                card.dataset.id = i;
+
+                board.appendChild(card);
+            }
+        }
+
+        reset_board();
+
+        var moving_target = undefined;
+        var x_init, y_init, left_init, top_init;
+        
+        function card_move_mousedown(e){
+            e.preventDefault();
+
+            if(e.target.classList.contains("card")){
+                moving_target = e.target;
+                x_init = e.clientX;
+                y_init = e.clientY;
+                left_init = parseInt(moving_target.style.left.replace("px",""));
+                top_init = parseInt(moving_target.style.top.replace("px",""));
+            }
+        }
+
+        function card_move_mousemove(e){
+            e.preventDefault();
+
+            if(moving_target){
+                x_move = e.clientX - x_init;
+                y_move = e.clientY - y_init;
+                moving_target.style.left = (left_init + x_move) + "px";
+                moving_target.style.top = (top_init + y_move) + "px";
+            }
+        }
+        
+        function card_move_mouseup(e){
+            e.preventDefault();
+
+            if(moving_target){
+                moving_target = undefined;
+            }
+        }
+
+        board.addEventListener("mousedown", card_move_mousedown);
+        board.addEventListener("mousemove", card_move_mousemove);
+        board.addEventListener("mouseup", card_move_mouseup);
+
+        game_start.addEventListener("click", (e) => {
+            e.preventDefault();
+
+            board.removeEventListener("mousedown", card_move_mousedown);
+            board.removeEventListener("mousemove", card_move_mousemove);
+            board.removeEventListener("mouseup", card_move_mouseup);
+            state0.style.display = "none";
+            state1.style.display = "block";
+
+            n_remain_input.value = topk_input.value;
+            n_comp_input.value = 0;
+
+            state = 1;
+
+            let n_cards = parseInt(n_cards_input.value);
+            let card_nums = [];
+
+            for(let i=0; i<n_cards; i++){
+                card_nums.push(i);
+            }
+            shuffle(card_nums)
+            
+            console.log(card_nums);
+
+            let selected_card_id = -1;
+            let selected_card;
+
+            let ordered_remain_cards = [];
+            for(let i=parseInt(topk_input.value)-1; i>=0; i--){
+                ordered_remain_cards.push(i);
+            }
+
+            console.log(ordered_remain_cards);
+            
+
+            board.addEventListener("click", (e) => {
+
+                e.preventDefault();
+
+                if(state == 1 && e.target.classList.contains("card") && !e.target.classList.contains("flipped")) {
+                    // 첫번째 카드를 선택한다.
+                    state = 2;
+                    e.target.classList.add("selected");
+                    selected_card_id = parseInt(e.target.dataset.id);
+                    selected_card = e.target;
+                }
+                else if(state == 2 && e.target.classList.contains("card") && !e.target.classList.contains("flipped")){
+                    // 두번째 카드를 선택한다.
+                    let card_id = parseInt(e.target.dataset.id);
+
+                    if(selected_card_id == card_id){
+                        // 두번째 카드가 첫번째 카드와 같은 경우, 카드를 뒤집는다.
+                        e.target.innerText=card_nums[card_id];
+                        e.target.classList.remove("selected");
+                        e.target.classList.add("flipped");
+
+                        let min_card_num = ordered_remain_cards[ordered_remain_cards.length-1];
+                        if(card_nums[card_id] == min_card_num){
+                            n_remain_input.value = parseInt(n_remain_input.value) - 1;
+                            ordered_remain_cards.pop();
+
+                            if(parseInt(n_remain_input.value) == 0){
+                                // mission clear
+                                setTimeout(() => {
+                                    state = 5;
+                                    missionclear.style.display = "flex";
+                                    final_score.innerText = n_comp_input.value;
+                                });
+                            }
+
+                        }
+                        else{
+                            // game over
+                            setTimeout(()=>{
+                                state = 4;
+                                gameover.style.display = "flex";
+                            });
+                            
+                        }
+
+                        
+                        
+                        state = 1;
+                    }
+                    else{
+                        // 첫번째 선택한 카드와 두번째 선택한 카드를 비교하여 누가 더 큰지 알려준다.
+
+                        n_comp_input.value = parseInt(n_comp_input.value) + 1
+                        
+                        first_card_num = card_nums[selected_card_id];
+                        second_card_num = card_nums[card_id];
+
+                        let first_card = selected_card;
+                        let second_card = e.target;
+
+                        first_card.classList.remove("selected")
+
+                        if(first_card_num < second_card_num){
+                            first_card.classList.add("smaller");
+                            second_card.classList.add("larger");
+                        }
+                        else{
+                            first_card.classList.add("larger");
+                            second_card.classList.add("smaller");
+                        }
+
+                        state = 3;
+
+                        setTimeout(() => {
+                            if(confirm("카드 자리를 바꿀까요?")){
+                                first_card.style.transitionDuration = "0.5s";
+                                second_card.style.transitionDuration = "0.5s";
+
+                                tmp_left = first_card.style.left;
+                                tmp_top = first_card.style.top;
+                                first_card.style.left = second_card.style.left;
+                                first_card.style.top = second_card.style.top;
+                                second_card.style.left = tmp_left;
+                                second_card.style.top = tmp_top;
+
+                                first_card.style.transitionDuration = undefined;
+                                second_card.style.transitionDuration = undefined;
+                            }
+
+                            setTimeout(()=>{
+                                first_card.classList.remove("larger");
+                                first_card.classList.remove("smaller");
+                                second_card.classList.remove("larger");
+                                second_card.classList.remove("smaller");
+                            }, 500);
+
+                            state = 1;
+                        }, 300);
+
+                    }
+                    
+                }
+
+            });
+        });
+
+    </script>
+</html>
