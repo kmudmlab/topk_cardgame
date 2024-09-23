@@ -136,16 +136,12 @@
         <div id="state0">
 
             <div class="info">
-                카드 수와 찾을 카드 수를 정하고, 카드를 적절히 배치한 후 "게임시작" 버튼을 누르세요!
+                카드 수를 정하고, 카드를 적절히 배치한 후 "게임시작" 버튼을 누르세요!
             </div>
 
             카드 수 <input id="n_cards_input" class="text_input" type="text" value=10 disabled/>
             <button id="n_card_down">▼</button>
             <button id="n_card_up">▲</button>
-
-            찾을 카드 수 <input id="topk_input" class="text_input" type="text" value=3 disabled/>
-            <button id="topk_down">▼</button>
-            <button id="topk_up">▲</button>
             ------
             <button id="game_start">게임시작</button>
         </div>
@@ -156,7 +152,6 @@
                 비교할 두 카드를 차례로 선택하세요, 뒤집으려면 같은 카드를 두 번 선택하세요.
             </div>
             비교 횟수 <input id="n_comp_input" class="text_input" type="text" value=0 disabled/>
-            남은 카드 수 <input id="n_remain_input" class="text_input" type="text" value=0 disabled/>
         </div>
         
         <div id="board">
@@ -187,16 +182,7 @@
 
         n_card_down.addEventListener("click", (e) => {
             n_cards_input.value = Math.max(1, parseInt(n_cards_input.value) - 1);
-            topk_input.value = Math.min(parseInt(n_cards_input.value), parseInt(topk_input.value));
             reset_board();
-        });
-
-        topk_up.addEventListener("click", (e) => {
-            topk_input.value = Math.min(parseInt(n_cards_input.value), parseInt(topk_input.value) + 1);
-        });
-
-        topk_down.addEventListener("click", (e) => {
-            topk_input.value = Math.max(1, parseInt(topk_input.value) - 1);
         });
 
 
@@ -267,7 +253,6 @@
             state0.style.display = "none";
             state1.style.display = "block";
 
-            n_remain_input.value = topk_input.value;
             n_comp_input.value = 0;
 
             state = 1;
@@ -284,13 +269,6 @@
 
             let selected_card_id = -1;
             let selected_card;
-
-            let ordered_remain_cards = [];
-            for(let i=parseInt(topk_input.value)-1; i>=0; i--){
-                ordered_remain_cards.push(i);
-            }
-
-            console.log(ordered_remain_cards);
             
 
             board.addEventListener("click", (e) => {
