@@ -297,14 +297,14 @@
 
                 e.preventDefault();
 
-                if(state == 1 && e.target.classList.contains("card") && !e.target.classList.contains("flipped")) {
+                if(state == 1 && e.target.classList.contains("card")) {
                     // 첫번째 카드를 선택한다.
                     state = 2;
                     e.target.classList.add("selected");
                     selected_card_id = parseInt(e.target.dataset.id);
                     selected_card = e.target;
                 }
-                else if(state == 2 && e.target.classList.contains("card") && !e.target.classList.contains("flipped")){
+                else if(state == 2 && e.target.classList.contains("card")){
                     // 두번째 카드를 선택한다.
                     let card_id = parseInt(e.target.dataset.id);
 
