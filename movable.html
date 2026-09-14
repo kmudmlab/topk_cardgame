@@ -1,0 +1,476 @@
+<html>
+    <head>
+        <title>Top-k Card Game, Kookmin Univ.</title>
+        <script>
+            function randInt(max) {
+                return Math.floor(Math.random() * max);
+            }
+            function shuffle(array) {
+                let currentIndex = array.length, randomIndex;
+
+                while (currentIndex !== 0) {
+
+                    randomIndex = Math.floor(Math.random() * currentIndex);
+                    currentIndex--;
+
+                    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+                }
+
+                return array;
+            }
+        </script>
+        <style>
+            #board{
+                margin-top:10px;
+                width:1000px;
+                height:800px;
+                background-color:honeydew;
+                position: relative;
+            }
+            .text_input{
+                width:40px;
+                text-align:center;
+            }
+
+            .card{
+                width:80px;
+                height:120px;
+                background:linear-gradient(120deg, rgba(177,174,219,1) 0%, rgba(14,101,119,1) 100%);
+                border-radius:5px;
+                position:absolute;
+                left:10px;
+                top:10px;
+                box-shadow: 0px 0px 3px 0px rgba(0,0,0,0.3);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 37px;
+                z-index:1;
+                touch-action: none;
+                user-select: none;
+            }
+
+            .card:hover{
+                z-index:2;
+                cursor: grab;
+                box-shadow: 0px 0px 5px 0px rgba(0,0,0,0.5);
+            }
+
+            .card.dragging{
+                z-index:4;
+                cursor: grabbing;
+            }
+
+            .card.swap-target{
+                z-index:3;
+            }
+
+            .card.swapping{
+                z-index:3;
+                cursor:wait;
+                box-shadow:0px 0px 8px 2px rgba(0,0,0,0.4);
+            }
+
+            .swap-button{
+                position:absolute;
+                bottom:calc(100% + 8px);
+                left:50%;
+                transform:translateX(-50%);
+                padding:5px 14px;
+                border:1px solid black;
+                border-radius:4px;
+                background:black;
+                color:white;
+                font-size:16px;
+                font-weight:bold;
+                cursor:pointer;
+            }
+
+            .swap-button:hover{
+                background:white;
+                color:black;
+            }
+
+            .info{
+                background-color:tomato;
+                width:1000px;
+                height: 50px;
+                margin-bottom:10px;
+                color:white;
+                display:flex;
+                justify-content:center;
+                align-items:center;
+                font-weight: bold;
+            }
+
+            .info.info2{
+                background-color: goldenrod;
+            }
+
+            #game_start{
+                background-color: black;
+                border: 2px solid black;
+                color:white;
+                border-radius: 3px;
+                font-weight: bold;
+            }
+            #game_start:hover{
+                background-color:white;
+                color:black;
+            }
+
+            .card.selected {
+                background: linear-gradient(120deg, rgba(255,254,0,1) 0%, rgba(255,220,71,1) 100%);
+            }
+            .card.flipped {
+                background: linear-gradient(120deg, rgba(255,255,255,1) 0%, rgba(238,238,238,1) 100%);
+            }
+            .card.larger{
+                background: linear-gradient(120deg, rgba(255,113,0,1) 0%, rgba(255,199,0,1) 100%);
+            }
+            .card.smaller{
+                background: linear-gradient(120deg, rgba(161,161,161,1) 0%, rgba(89,91,98,1) 100%);
+            }
+            .card.larger::before{
+                content: "↑";
+                color: white;
+            }
+            .card.smaller::before{
+                content: "↓";
+                color: white;
+            }
+            #gameover{
+                background-color:rgba(0,0,0,0.4);
+                position:absolute;
+                display:none;
+                left:0px;
+                top:0px;
+                width:100%;
+                height:100%;
+                color:white;
+                z-index:100;
+                justify-content:center;
+                align-items:center;
+            }
+            #missionclear{
+                background-color:rgba(255,255,255,0.4);
+                position:absolute;
+                display:none;
+                left:0px;
+                top:0px;
+                width:100%;
+                height:100%;
+                font-size:100px;
+                color:black;
+                z-index:100;
+                justify-content:center;
+                align-items:center;
+            }
+
+        </style>
+    </head>
+    <body>
+        <div id="state0">
+
+            <div class="info">
+                카드 수와 찾을 카드 수를 정하고, 카드를 적절히 배치한 후 "게임시작" 버튼을 누르세요!
+            </div>
+
+            카드 수 <input id="n_cards_input" class="text_input" type="text" value=10 disabled/>
+            <button id="n_card_down">▼</button>
+            <button id="n_card_up">▲</button>
+
+            찾을 카드 수 <input id="topk_input" class="text_input" type="text" value=3 disabled/>
+            <button id="topk_down">▼</button>
+            <button id="topk_up">▲</button>
+            ------
+            <button id="game_start">게임시작</button>
+        </div>
+
+        <div id="state1" style="display:none">
+
+            <div class="info info2">
+                비교할 두 카드를 차례로 선택하세요. 뒤집으려면 같은 카드를 두 번 선택하세요. 카드는 드래그하여 옮길 수 있습니다.
+            </div>
+            비교 횟수 <input id="n_comp_input" class="text_input" type="text" value=0 disabled/>
+            남은 카드 수 <input id="n_remain_input" class="text_input" type="text" value=0 disabled/>
+        </div>
+
+        <div id="board">
+
+
+        </div>
+        <div id="gameover">
+            <div style="font-size:40px;text-align:center;">
+                찾은 카드가 최소값을 갖지 않습니다...<br>
+                <div style="font-size:100px">Game Over!</div>
+            </div>
+        </div>
+        <div id="missionclear">
+            <div style="font-size:40px;text-align:center;">
+                축하합니다!<br>
+                <div style="font-size:100px">Mission Clear!</div>
+                최종 비교 횟수: <span id="final_score"></span>
+            </div>
+        </div>
+    </body>
+    <script>
+        var state = 0; // 0: beginning
+
+        n_card_up.addEventListener("click", (e) => {
+            n_cards_input.value = Math.min(30, parseInt(n_cards_input.value) + 1);
+            reset_board();
+        });
+
+        n_card_down.addEventListener("click", (e) => {
+            n_cards_input.value = Math.max(1, parseInt(n_cards_input.value) - 1);
+            topk_input.value = Math.min(parseInt(n_cards_input.value), parseInt(topk_input.value));
+            reset_board();
+        });
+
+        topk_up.addEventListener("click", (e) => {
+            topk_input.value = Math.min(parseInt(n_cards_input.value), parseInt(topk_input.value) + 1);
+        });
+
+        topk_down.addEventListener("click", (e) => {
+            topk_input.value = Math.max(1, parseInt(topk_input.value) - 1);
+        });
+
+
+        function reset_board(){
+
+            while(board.firstChild) board.removeChild(board.lastChild);
+
+            var n_cards = parseInt(n_cards_input.value);
+
+            for(var i=0; i<n_cards; i++){
+                card = document.createElement("div");
+                card.classList.add('card');
+                card.style.left = (40 + i * 90) + "px";
+                card.style.top = "40px";
+                card.dataset.id = i;
+
+                board.appendChild(card);
+            }
+        }
+
+        reset_board();
+
+        let card_drag;
+        let suppress_card_click = false;
+
+        board.addEventListener("pointerdown", (e) => {
+            if(card_drag || !e.isPrimary || e.button !== 0) return;
+            suppress_card_click = false;
+            if(!e.target.classList.contains("card") || state >= 3) return;
+
+            card_drag = {
+                card: e.target,
+                pointerId: e.pointerId,
+                x: e.clientX,
+                y: e.clientY,
+                left: parseFloat(e.target.style.left),
+                top: parseFloat(e.target.style.top),
+                moved: false
+            };
+            // Keep receiving movement and release events outside the card or board.
+            e.target.setPointerCapture(e.pointerId);
+        });
+
+        document.addEventListener("pointermove", (e) => {
+            if(!card_drag || e.pointerId !== card_drag.pointerId) return;
+
+            const dx = e.clientX - card_drag.x;
+            const dy = e.clientY - card_drag.y;
+            // Small pointer movements still count as an ordinary click.
+            if(!card_drag.moved && Math.hypot(dx, dy) < 5) return;
+
+            card_drag.moved = true;
+            card_drag.card.classList.add("dragging");
+            card_drag.card.style.left = (card_drag.left + dx) + "px";
+            card_drag.card.style.top = (card_drag.top + dy) + "px";
+        });
+
+        function finish_card_drag(e){
+            if(!card_drag || e.pointerId !== card_drag.pointerId) return;
+
+            const { card, pointerId, moved } = card_drag;
+            suppress_card_click = moved || e.type === "pointercancel";
+            card_drag = undefined;
+            card.classList.remove("dragging");
+            if(card.hasPointerCapture(pointerId)) card.releasePointerCapture(pointerId);
+        }
+
+        document.addEventListener("pointerup", finish_card_drag);
+        document.addEventListener("pointercancel", finish_card_drag);
+        document.addEventListener("lostpointercapture", finish_card_drag);
+        window.addEventListener("blur", () => {
+            if(card_drag) finish_card_drag({ pointerId: card_drag.pointerId, type: "pointercancel" });
+        });
+        board.addEventListener("click", (e) => {
+            if(suppress_card_click){
+                suppress_card_click = false;
+                e.preventDefault();
+                e.stopImmediatePropagation();
+            }
+        }, true);
+
+        game_start.addEventListener("click", (e) => {
+            e.preventDefault();
+
+            state0.style.display = "none";
+            state1.style.display = "block";
+
+            n_remain_input.value = topk_input.value;
+            n_comp_input.value = 0;
+
+            state = 1;
+
+            let n_cards = parseInt(n_cards_input.value);
+            let card_nums = [];
+
+            for(let i=0; i<n_cards; i++){
+                card_nums.push(i);
+            }
+            shuffle(card_nums)
+
+            console.log(card_nums);
+
+            let selected_card_id = -1;
+            let selected_card;
+            let comparison;
+
+            function clear_comparison(){
+                if(!comparison) return;
+                comparison.button.remove();
+                comparison.first.classList.remove("larger", "smaller");
+                comparison.second.classList.remove("larger", "smaller", "swap-target");
+                comparison = undefined;
+            }
+
+            let ordered_remain_cards = [];
+            for(let i=parseInt(topk_input.value)-1; i>=0; i--){
+                ordered_remain_cards.push(i);
+            }
+
+            console.log(ordered_remain_cards);
+
+
+            board.addEventListener("click", (e) => {
+
+                e.preventDefault();
+
+                if(state == 1 && e.target.classList.contains("card") && !e.target.classList.contains("flipped")) {
+                    // 첫번째 카드를 선택한다.
+                    clear_comparison();
+                    state = 2;
+                    e.target.classList.add("selected");
+                    selected_card_id = parseInt(e.target.dataset.id);
+                    selected_card = e.target;
+                }
+                else if(state == 2 && e.target.classList.contains("card") && !e.target.classList.contains("flipped")){
+                    // 두번째 카드를 선택한다.
+                    let card_id = parseInt(e.target.dataset.id);
+
+                    if(selected_card_id == card_id){
+                        // 두번째 카드가 첫번째 카드와 같은 경우, 카드를 뒤집는다.
+                        e.target.innerText=card_nums[card_id];
+                        e.target.classList.remove("selected");
+                        e.target.classList.add("flipped");
+
+                        let min_card_num = ordered_remain_cards[ordered_remain_cards.length-1];
+                        if(card_nums[card_id] == min_card_num){
+                            n_remain_input.value = parseInt(n_remain_input.value) - 1;
+                            ordered_remain_cards.pop();
+
+                            if(parseInt(n_remain_input.value) == 0){
+                                // mission clear
+                                setTimeout(() => {
+                                    state = 5;
+                                    missionclear.style.display = "flex";
+                                    final_score.innerText = n_comp_input.value;
+                                });
+                            }
+
+                        }
+                        else{
+                            // game over
+                            setTimeout(()=>{
+                                state = 4;
+                                gameover.style.display = "flex";
+                            });
+
+                        }
+
+
+
+                        state = 1;
+                    }
+                    else{
+                        // 첫번째 선택한 카드와 두번째 선택한 카드를 비교하여 누가 더 큰지 알려준다.
+
+                        n_comp_input.value = parseInt(n_comp_input.value) + 1
+
+                        first_card_num = card_nums[selected_card_id];
+                        second_card_num = card_nums[card_id];
+
+                        let first_card = selected_card;
+                        let second_card = e.target;
+
+                        first_card.classList.remove("selected")
+
+                        if(first_card_num < second_card_num){
+                            first_card.classList.add("smaller");
+                            second_card.classList.add("larger");
+                        }
+                        else{
+                            first_card.classList.add("larger");
+                            second_card.classList.add("smaller");
+                        }
+
+                        const swap_button = document.createElement("button");
+                        swap_button.type = "button";
+                        swap_button.className = "swap-button";
+                        swap_button.textContent = "swap";
+                        swap_button.setAttribute("aria-label", "비교한 두 카드의 자리 바꾸기");
+                        swap_button.addEventListener("click", (event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            if(state !== 1 || card_drag) return;
+                            state = 3;
+                            swap_button.remove();
+
+                            const first_position = { left: first_card.style.left, top: first_card.style.top };
+                            const second_position = { left: second_card.style.left, top: second_card.style.top };
+                            first_card.classList.add("swapping");
+                            second_card.classList.add("swapping");
+                            Object.assign(first_card.style, second_position);
+                            Object.assign(second_card.style, first_position);
+
+                            const timing = { duration: 500, easing: "ease-in-out" };
+                            const animations = [
+                                first_card.animate([first_position, second_position], timing),
+                                second_card.animate([second_position, first_position], timing)
+                            ];
+                            function finish_swap(){
+                                first_card.classList.remove("swapping");
+                                second_card.classList.remove("swapping");
+                                clear_comparison();
+                                state = 1;
+                            }
+                            Promise.all(animations.map(animation => animation.finished)).then(finish_swap, finish_swap);
+                        });
+                        second_card.classList.add("swap-target");
+                        second_card.appendChild(swap_button);
+                        comparison = { first: first_card, second: second_card, button: swap_button };
+                        state = 1;
+
+                    }
+
+                }
+
+            });
+        });
+
+    </script>
+</html>
